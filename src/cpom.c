@@ -16,9 +16,13 @@
     snprintf(buf, "mpv %s --volume %d > /dev/null 2>&1 &", SOUND, VOLUME); \
     system(buf);    \
 
+#define work countdown_timer(intervals[0] * 60, names[0]);
+#define short_break countdown_timer(intervals[2] * 60, names[2]);
+#define long_break countdown_timer(intervals[3] * 60, names[3]);
+
 char keybindings[] = {'h',    'j',         'k',           'k',          'q'};
-char* names[]      = {"WORK", "LONG WORK", "SHORT BREAK", "LONG BREAK", "QUIT"};
-int intervals[]    = {25,     115,         5,             15,           0}; /* IN MINUTES */
+char* names[]      = {"WORK", "WORK + BREAK", "SHORT BREAK", "LONG BREAK", "QUIT"};
+int intervals[]    = {25,     115,             5,             15,           0}; /* IN MINUTES */
 
 char* spinner[4] = {"\\", "|", "/", "-"};
 
@@ -57,8 +61,31 @@ void display_main_menu(void)
     }
 }
 
+void print_pause_menu(void)
+{
+    nodelay(stdscr, FALSE);
+
+    mvprintw(3, 1, "Time Paused...");
+    mvprintw(4, 1, "[c] Continue");
+    mvprintw(5, 1, "[q] Quit");
+    refresh();
+
+    switch (getch()) {
+    case 'c':
+        break;
+    case 'q':
+        endwin();
+        exit(1);
+    }
+
+    nodelay(stdscr, TRUE);
+    clear();
+    refresh();
+}
+
 void countdown_timer(unsigned int time_in_sec, char* type)
 {
+    nodelay(stdscr, TRUE);
     unsigned int min  = 0;
     unsigned int sec  = 0;
     unsigned int msec = 0;
@@ -72,10 +99,10 @@ void countdown_timer(unsigned int time_in_sec, char* type)
     start_time = clock();
     clear();
     refresh();
-    attron(COLOR_PAIR(GREEN));
-    mvprintw(0, 1, "%s", type);
-    attroff(COLOR_PAIR(GREEN));
     do {
+        attron(COLOR_PAIR(GREEN));
+        mvprintw(0, 1, "%s", type);
+        attroff(COLOR_PAIR(GREEN));
         count_time = clock();
         msec = count_time - start_time;
         sec  = (msec / CLOCKS_PER_SEC) - (min * 60);
@@ -91,6 +118,15 @@ void countdown_timer(unsigned int time_in_sec, char* type)
 
         mvprintw(1, 5, "%dm %ds\n", time_left / 60, time_left % 60);
         refresh();
+
+        switch (getch()) {
+        case 'p':
+            print_pause_menu();
+            break;
+        case 'q':
+            endwin();
+            exit(1);
+        }
     } while (time_left > 0);
     clear();
     refresh();
@@ -101,23 +137,31 @@ void countdown_timer(unsigned int time_in_sec, char* type)
 
 void cpom(void)
 {
+    nodelay(stdscr, TRUE);
     display_main_menu();
 
     switch (getch()) {
     case 'h':
-        countdown_timer(1500, "WORK");
+        work;
         break;
     case 'j':
-        countdown_timer(6900, "LONG WORK");
+        work;
+        short_break;
+        work;
+        short_break;
+        work;
+        short_break;
+        work;
         break;
     case 'k':
-        countdown_timer(300, "SHORT BREAK");
+        short_break;
         break;
     case 'l':
-        countdown_timer(900, "LONG BREAK");
+        long_break;
         break;
     case 'f':
-        countdown_timer(5, "LOL");
+        countdown_timer(5, "TESTING");
+        countdown_timer(6, "TESTING2");
         break;
     case 'q':
         endwin();
