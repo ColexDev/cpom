@@ -4,10 +4,17 @@
 #include <ncurses.h>
 #include <time.h>
 
+#include "../config.h"
+
 #define GREEN 1
 #define GRAY 2
 #define COLOR_GRAY 8
 #define DEFAULT -1
+
+#define notify      \
+    char buf[256];  \
+    snprintf(buf, "mpv %s --volume %d > /dev/null 2>&1 &", SOUND, VOLUME); \
+    system(buf);    \
 
 char keybindings[] = {'h',    'j',         'k',           'k',          'q'};
 char* names[]      = {"WORK", "LONG WORK", "SHORT BREAK", "LONG BREAK", "QUIT"};
@@ -59,6 +66,9 @@ void countdown_timer(unsigned int time_in_sec, char* type)
     unsigned int time_left  = 0;
 
     clock_t start_time, count_time;
+
+    char buf[256];
+
     start_time = clock();
     clear();
     refresh();
@@ -84,8 +94,10 @@ void countdown_timer(unsigned int time_in_sec, char* type)
     } while (time_left > 0);
     clear();
     refresh();
-}
 
+    snprintf(buf, 256, "mpv %s --volume=%d > /dev/null 2>&1 &", SOUND, VOLUME);
+    system(buf);
+}
 
 void cpom(void)
 {

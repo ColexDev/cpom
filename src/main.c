@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <ncurses.h>
 
-#include "cpom.h"
+#include "../include/cpom.h"
 
 int main(int argc, char* argv[])
 {
