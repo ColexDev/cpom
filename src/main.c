@@ -4,7 +4,8 @@
 
 #include "../include/cpom.h"
 
-int main(int argc, char* argv[])
+int
+main(int argc, char* argv[])
 {
     initscr();
     start_color();

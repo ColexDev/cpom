@@ -6,27 +6,32 @@
 
 #include "../config.h"
 
-#define GREEN 1
-#define GRAY 2
-#define COLOR_GRAY 8
-#define DEFAULT -1
+#define DEFAULT   -1
+#define GREEN      1
+#define GRAY       2
+#define COLOR_GRAY 8 /* ncurses color macros end at 7 */
 
-#define notify      \
-    char buf[256];  \
-    snprintf(buf, "mpv %s --volume %d > /dev/null 2>&1 &", SOUND, VOLUME); \
-    system(buf);    \
+#define NOTIFY()                                                                \
+    char buf[256];                                                              \
+    snprintf(buf, 256, "mpv %s --volume=%d > /dev/null 2>&1 &", SOUND, VOLUME); \
+    system(buf);                                                                \
 
-#define work countdown_timer(intervals[0] * 60, names[0]);
-#define short_break countdown_timer(intervals[2] * 60, names[2]);
-#define long_break countdown_timer(intervals[3] * 60, names[3]);
+#define END() \
+    endwin(); \
+    exit(1);  \
 
-char keybindings[] = {'h',    'j',         'k',           'k',          'q'};
+#define WORK        countdown_timer(intervals[0] * 60, names[0]);
+#define SHORT_BREAK countdown_timer(intervals[2] * 60, names[2]);
+#define LONG_BREAK  countdown_timer(intervals[3] * 60, names[3]);
+
+char keybindings[] = {'h',    'j',            'k',           'k',          'q'};
 char* names[]      = {"WORK", "WORK + BREAK", "SHORT BREAK", "LONG BREAK", "QUIT"};
 int intervals[]    = {25,     115,             5,             15,           0}; /* IN MINUTES */
 
-char* spinner[4] = {"\\", "|", "/", "-"};
+char* spinner[4]   = {"\\", "|", "/", "-"};
 
-void init_colors(void)
+void
+init_colors(void)
 {
     use_default_colors();
     init_color(COLOR_GRAY, 255, 255, 255);
@@ -34,7 +39,8 @@ void init_colors(void)
     init_pair(GRAY, COLOR_GRAY, DEFAULT);
 }
 
-void display_main_menu(void)
+void
+display_main_menu(void)
 {
     attron(COLOR_PAIR(GREEN));
     attron(A_BOLD);
@@ -42,7 +48,9 @@ void display_main_menu(void)
     attroff(A_BOLD);
     attroff(COLOR_PAIR(GREEN));
 
-    for (int i = 0; i < sizeof(keybindings) / sizeof(keybindings[0]); i++) {
+    int num_of_bindings = sizeof keybindings / sizeof keybindings[0];
+
+    for (int i = 0; i < num_of_bindings; i++) {
         int line_len = 1;
 
         attron(COLOR_PAIR(GREEN));
@@ -61,40 +69,39 @@ void display_main_menu(void)
     }
 }
 
-void print_pause_menu(void)
+void
+pause_timer(void)
 {
     nodelay(stdscr, FALSE);
 
     mvprintw(3, 1, "Time Paused...");
     mvprintw(4, 1, "[c] Continue");
     mvprintw(5, 1, "[q] Quit");
+
     refresh();
 
     switch (getch()) {
     case 'c':
         break;
     case 'q':
-        endwin();
-        exit(1);
+        END();
     }
 
     nodelay(stdscr, TRUE);
     clear();
-    refresh();
 }
 
-void countdown_timer(unsigned int time_in_sec, char* type)
+void
+countdown_timer(unsigned int time_in_sec, char* type)
 {
     nodelay(stdscr, TRUE);
-    unsigned int min  = 0;
-    unsigned int sec  = 0;
-    unsigned int msec = 0;
+    unsigned int min        = 0;
+    unsigned int sec        = 0;
+    unsigned int msec       = 0;
     unsigned int total_time = 0;
     unsigned int time_left  = 0;
 
     clock_t start_time, count_time;
-
-    char buf[256];
 
     start_time = clock();
     clear();
@@ -121,51 +128,49 @@ void countdown_timer(unsigned int time_in_sec, char* type)
 
         switch (getch()) {
         case 'p':
-            print_pause_menu();
+            pause_timer();
             break;
         case 'q':
-            endwin();
-            exit(1);
+            END();
         }
     } while (time_left > 0);
     clear();
     refresh();
 
-    snprintf(buf, 256, "mpv %s --volume=%d > /dev/null 2>&1 &", SOUND, VOLUME);
-    system(buf);
+    NOTIFY();
 }
 
-void cpom(void)
+void
+cpom(void)
 {
     nodelay(stdscr, TRUE);
     display_main_menu();
 
     switch (getch()) {
     case 'h':
-        work;
+        WORK;
         break;
     case 'j':
-        work;
-        short_break;
-        work;
-        short_break;
-        work;
-        short_break;
-        work;
+        WORK;
+        SHORT_BREAK;
+        WORK;
+        SHORT_BREAK;
+        WORK;
+        SHORT_BREAK;
+        WORK;
         break;
     case 'k':
-        short_break;
+        SHORT_BREAK;
         break;
     case 'l':
-        long_break;
+        LONG_BREAK;
         break;
-    case 'f':
+    case 't':
         countdown_timer(5, "TESTING");
         countdown_timer(6, "TESTING2");
         break;
     case 'q':
-        endwin();
-        exit(0);
+        END();
     default:
         break;
     }
