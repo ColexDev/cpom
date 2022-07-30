@@ -5,6 +5,7 @@
 #include <time.h>
 
 #include "../config.h"
+#include "../include/cpom.h"
 
 #define DEFAULT   -1
 #define GREEN      1
@@ -16,19 +17,22 @@
     snprintf(buf, 256, "mpv %s --volume=%d > /dev/null 2>&1 &", SOUND, VOLUME); \
     system(buf);                                                                \
 
-#define END() \
+#define QUIT() \
     endwin(); \
     exit(1);  \
 
 #define WORK        countdown_timer(intervals[0] * 60, names[0]);
 #define SHORT_BREAK countdown_timer(intervals[2] * 60, names[2]);
-#define LONG_BREAK  countdown_timer(intervals[3] * 60, names[3]);
+#define LONG_WORK   WORK; SHORT_BREAK; WORK; SHORT_BREAK; WORK; SHORT_BREAK; WORK;
 
-char keybindings[] = {'h',    'j',            'k',           'k',          'q'};
-char* names[]      = {"WORK", "WORK + BREAK", "SHORT BREAK", "LONG BREAK", "QUIT"};
-int intervals[]    = {25,     115,             5,             15,           0}; /* IN MINUTES */
+char keybindings[] = {'w',    'l',            's',           'q'   };
+char* names[]      = {"WORK", "WORK + BREAK", "SHORT BREAK", "QUIT"};
+int intervals[]    = {25,      115,           5,             0     }; /* IN MINUTES */
 
 char* spinner[4]   = {"\\", "|", "/", "-"};
+
+unsigned int total_time_spent_sec = 0;
+unsigned int total_time_spent_min = 0;
 
 void
 init_colors(void)
@@ -37,6 +41,19 @@ init_colors(void)
     init_color(COLOR_GRAY, 255, 255, 255);
     init_pair(GREEN, COLOR_GREEN, DEFAULT);
     init_pair(GRAY, COLOR_GRAY, DEFAULT);
+}
+
+void display_total_time(void)
+{
+    while (total_time_spent_sec >= 60) {
+        total_time_spent_min += 1;
+        total_time_spent_sec -= 60;
+    }
+
+    mvprintw(6, 1, "Time Spent This Session: ");
+    attron(COLOR_PAIR(GRAY));
+    mvprintw(6, 26, "%dm %ds", total_time_spent_min, total_time_spent_sec);
+    attroff(COLOR_PAIR(GRAY));
 }
 
 void
@@ -67,28 +84,33 @@ display_main_menu(void)
             attroff(COLOR_PAIR(GRAY));
         }
     }
+    display_total_time();
 }
 
-void
+int
 pause_timer(void)
 {
     nodelay(stdscr, FALSE);
 
     mvprintw(3, 1, "Time Paused...");
     mvprintw(4, 1, "[c] Continue");
-    mvprintw(5, 1, "[q] Quit");
+    mvprintw(5, 1, "[s] Skip");
+    mvprintw(6, 1, "[q] Quit");
 
     refresh();
 
     switch (getch()) {
     case 'c':
         break;
+    case 's':
+        return 1;
     case 'q':
-        END();
+        QUIT();
     }
 
     nodelay(stdscr, TRUE);
     clear();
+    return 0;
 }
 
 void
@@ -99,6 +121,7 @@ countdown_timer(unsigned int time_in_sec, char* type)
     unsigned int sec        = 0;
     unsigned int msec       = 0;
     unsigned int total_time = 0;
+    unsigned int total_secs = 0;
     unsigned int time_left  = 0;
 
     clock_t start_time, count_time;
@@ -111,11 +134,12 @@ countdown_timer(unsigned int time_in_sec, char* type)
         mvprintw(0, 1, "%s", type);
         attroff(COLOR_PAIR(GREEN));
         count_time = clock();
-        msec = count_time - start_time;
-        sec  = (msec / CLOCKS_PER_SEC) - (min * 60);
-        min  = (msec / CLOCKS_PER_SEC) / 60;
+        msec       = count_time - start_time;
+        total_secs = (msec / CLOCKS_PER_SEC);
+        sec        = (total_secs - (min * 60));
+        min        = ((msec / CLOCKS_PER_SEC) / 60);
 
-        time_left = time_in_sec - sec;
+        time_left = time_in_sec - total_secs;
 
         attron(COLOR_PAIR(GREEN));
         attron(A_BOLD);
@@ -128,12 +152,24 @@ countdown_timer(unsigned int time_in_sec, char* type)
 
         switch (getch()) {
         case 'p':
-            pause_timer();
+            if (pause_timer()) {
+                clear();
+                refresh();
+                if (strcmp(type, "SHORT BREAK") != 0) {
+                    total_time_spent_sec += total_secs;
+                }
+                return;
+            }
             break;
         case 'q':
-            END();
+            QUIT();
         }
     } while (time_left > 0);
+
+    if (strcmp(type, "SHORT BREAK") != 0) {
+        total_time_spent_sec += total_secs;
+    }
+
     clear();
     refresh();
 
@@ -146,31 +182,22 @@ cpom(void)
     nodelay(stdscr, TRUE);
     display_main_menu();
 
+    /* FIX: Figure out how to use keybindings array for this switch */
     switch (getch()) {
-    case 'h':
+    case 'w':
         WORK;
         break;
-    case 'j':
-        WORK;
-        SHORT_BREAK;
-        WORK;
-        SHORT_BREAK;
-        WORK;
-        SHORT_BREAK;
-        WORK;
-        break;
-    case 'k':
+    case 's':
         SHORT_BREAK;
         break;
     case 'l':
-        LONG_BREAK;
+        LONG_WORK;
         break;
     case 't':
         countdown_timer(5, "TESTING");
-        countdown_timer(6, "TESTING2");
         break;
     case 'q':
-        END();
+        QUIT();
     default:
         break;
     }
