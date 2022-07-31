@@ -12,14 +12,26 @@
 #define GRAY       2
 #define COLOR_GRAY 8 /* ncurses color macros end at 7 */
 
+#define CONTINUE 0
+#define SKIP 1
+
 #define NOTIFY()                                                                \
     char buf[256];                                                              \
     snprintf(buf, 256, "mpv %s --volume=%d > /dev/null 2>&1 &", SOUND, VOLUME); \
     system(buf);                                                                \
 
 #define QUIT() \
-    endwin(); \
-    exit(1);  \
+    endwin();  \
+    exit(1);   \
+
+#define CLEANUP_TIMER()                         \
+    clear();                                    \
+    refresh();                                  \
+    if (strcmp(type, "SHORT BREAK") != 0) {     \
+        total_time_spent_sec += ct->total_secs; \
+    }                                           \
+    free(ct);                                   \
+
 
 #define WORK        countdown_timer(intervals[0] * 60, names[0]);
 #define SHORT_BREAK countdown_timer(intervals[2] * 60, names[2]);
@@ -33,6 +45,26 @@ char* spinner[4]   = {"\\", "|", "/", "-"};
 
 unsigned int total_time_spent_sec = 0;
 unsigned int total_time_spent_min = 0;
+
+typedef struct {
+    unsigned int min;
+    unsigned int sec;
+    unsigned int msec;
+    unsigned int total_time;
+    unsigned int total_secs;
+    unsigned int time_left;
+} Countdown_time;
+
+void
+init_countdown_time(Countdown_time* ct)
+{
+    ct->min = 0;
+    ct->sec = 0;
+    ct->msec = 0;
+    ct->total_time = 0;
+    ct->total_secs = 0;
+    ct->time_left = 0;
+}
 
 void
 init_colors(void)
@@ -65,7 +97,7 @@ display_main_menu(void)
     attroff(A_BOLD);
     attroff(COLOR_PAIR(GREEN));
 
-    int num_of_bindings = sizeof keybindings / sizeof keybindings[0];
+    int num_of_bindings = sizeof(keybindings) / sizeof(keybindings[0]);
 
     for (int i = 0; i < num_of_bindings; i++) {
         int line_len = 1;
@@ -114,7 +146,7 @@ timer:
     case 'c':
         break;
     case 's':
-        return 1;
+        return SKIP;
     case 'q':
         QUIT();
     default:
@@ -123,19 +155,28 @@ timer:
 
     nodelay(stdscr, TRUE);
     clear();
-    return 0;
+    return CONTINUE;
+}
+
+void
+display_time_left(Countdown_time* ct)
+{
+    attron(COLOR_PAIR(GREEN));
+    attron(A_BOLD);
+    mvprintw(1, 1, "[%s] ", spinner[ct->time_left % 4]);
+    attroff(A_BOLD);
+    attroff(COLOR_PAIR(GREEN));
+
+    mvprintw(1, 5, "%dm %ds\n", ct->time_left / 60, ct->time_left % 60);
+    refresh();
 }
 
 void
 countdown_timer(unsigned int time_in_sec, char* type)
 {
     nodelay(stdscr, TRUE);
-    unsigned int min        = 0;
-    unsigned int sec        = 0;
-    unsigned int msec       = 0;
-    unsigned int total_time = 0;
-    unsigned int total_secs = 0;
-    unsigned int time_left  = 0;
+    Countdown_time* ct = malloc(sizeof(Countdown_time));
+    init_countdown_time(ct);
 
     clock_t start_time, count_time;
 
@@ -147,45 +188,29 @@ countdown_timer(unsigned int time_in_sec, char* type)
         mvprintw(0, 1, "%s", type);
         attroff(COLOR_PAIR(GREEN));
         count_time = clock();
-        msec       = count_time - start_time;
-        total_secs = (msec / CLOCKS_PER_SEC);
-        sec        = (total_secs - (min * 60));
-        min        = ((msec / CLOCKS_PER_SEC) / 60);
+        ct->msec       = count_time - start_time;
+        ct->total_secs = (ct->msec / CLOCKS_PER_SEC);
+        ct->sec        = (ct->total_secs - (ct->min * 60));
+        ct->min        = ((ct->msec / CLOCKS_PER_SEC) / 60);
 
-        time_left = time_in_sec - total_secs;
+        ct->time_left  = time_in_sec - ct->total_secs;
 
-        attron(COLOR_PAIR(GREEN));
-        attron(A_BOLD);
-        mvprintw(1, 1, "[%s] ", spinner[time_left % 4]);
-        attroff(A_BOLD);
-        attroff(COLOR_PAIR(GREEN));
-
-        mvprintw(1, 5, "%dm %ds\n", time_left / 60, time_left % 60);
-        refresh();
+        display_time_left(ct);
 
         switch (getch()) {
         case 'p':
-            if (pause_timer()) {
-                clear();
-                refresh();
-                if (strcmp(type, "SHORT BREAK") != 0) {
-                    total_time_spent_sec += total_secs;
-                }
+            if (pause_timer() == SKIP) {
+                CLEANUP_TIMER();
                 return;
             }
             break;
         case 'q':
+            free(ct);
             QUIT();
         }
-    } while (time_left > 0);
+    } while (ct->time_left > 0);
 
-    if (strcmp(type, "SHORT BREAK") != 0) {
-        total_time_spent_sec += total_secs;
-    }
-
-    clear();
-    refresh();
-
+    CLEANUP_TIMER();
     NOTIFY();
 }
 
