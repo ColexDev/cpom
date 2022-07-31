@@ -90,12 +90,23 @@ display_main_menu(void)
 int
 pause_timer(void)
 {
+timer:
     nodelay(stdscr, FALSE);
 
+    /* FIX: Change this to the printing method in countdown_timer, using arrays */
     mvprintw(3, 1, "Time Paused...");
-    mvprintw(4, 1, "[c] Continue");
-    mvprintw(5, 1, "[s] Skip");
-    mvprintw(6, 1, "[q] Quit");
+    attron(COLOR_PAIR(GREEN));
+    mvprintw(4, 1, "[c] ");
+    attroff(COLOR_PAIR(GREEN));
+    mvprintw(4, 5, "Continue");
+    attron(COLOR_PAIR(GREEN));
+    mvprintw(5, 1, "[s] ");
+    attroff(COLOR_PAIR(GREEN));
+    mvprintw(5, 5, "Skip");
+    attron(COLOR_PAIR(GREEN));
+    mvprintw(6, 1, "[q] ");
+    attroff(COLOR_PAIR(GREEN));
+    mvprintw(6, 5, "Quit");
 
     refresh();
 
@@ -106,6 +117,8 @@ pause_timer(void)
         return 1;
     case 'q':
         QUIT();
+    default:
+        goto timer;
     }
 
     nodelay(stdscr, TRUE);
