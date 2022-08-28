@@ -13,7 +13,7 @@
 #define COLOR_GRAY 8 /* ncurses color macros end at 7 */
 
 #define CONTINUE 0
-#define SKIP 1
+#define SKIP     1
 
 #define NOTIFY()                                                                \
     char buf[256];                                                              \
@@ -27,19 +27,18 @@
 #define CLEANUP_TIMER()                         \
     clear();                                    \
     refresh();                                  \
-    if (strcmp(type, "SHORT BREAK") != 0) {     \
+    if (strcmp(type, "BREAK") != 0) {           \
         total_time_spent_sec += ct->total_secs; \
     }                                           \
     free(ct);                                   \
 
 
-#define WORK        countdown_timer(intervals[0] * 60, names[0]);
-#define SHORT_BREAK countdown_timer(intervals[2] * 60, names[2]);
-#define LONG_WORK   WORK; SHORT_BREAK; WORK; SHORT_BREAK; WORK; SHORT_BREAK; WORK;
+#define WORK  countdown_timer(intervals[0] * 60, names[0]);
+#define BREAK countdown_timer(intervals[1] * 60, names[1]);
 
-char keybindings[] = {'w',    'l',            's',           'q'   };
-char* names[]      = {"WORK", "WORK + BREAK", "SHORT BREAK", "QUIT"};
-int intervals[]    = {25,      115,           5,             0     }; /* IN MINUTES */
+char keybindings[] = {'w',     'b',     'q'   };
+char* names[]      = {"WORK",  "BREAK", "QUIT"};
+int intervals[]    = {60,      10,      0     }; /* IN MINUTES */
 
 char* spinner[4]   = {"\\", "|", "/", "-"};
 
@@ -58,12 +57,12 @@ typedef struct {
 void
 init_countdown_time(Countdown_time* ct)
 {
-    ct->min = 0;
-    ct->sec = 0;
-    ct->msec = 0;
+    ct->min        = 0;
+    ct->sec        = 0;
+    ct->msec       = 0;
     ct->total_time = 0;
     ct->total_secs = 0;
-    ct->time_left = 0;
+    ct->time_left  = 0;
 }
 
 void
@@ -75,16 +74,17 @@ init_colors(void)
     init_pair(GRAY, COLOR_GRAY, DEFAULT);
 }
 
-void display_total_time(void)
+void
+display_total_time(void)
 {
     while (total_time_spent_sec >= 60) {
         total_time_spent_min += 1;
         total_time_spent_sec -= 60;
     }
 
-    mvprintw(6, 1, "Time Spent This Session: ");
+    mvprintw(5, 1, "Time Spent This Session: ");
     attron(COLOR_PAIR(GRAY));
-    mvprintw(6, 26, "%dm %ds", total_time_spent_min, total_time_spent_sec);
+    mvprintw(5, 26, "%dm %ds", total_time_spent_min, total_time_spent_sec);
     attroff(COLOR_PAIR(GRAY));
 }
 
@@ -122,7 +122,7 @@ display_main_menu(void)
 int
 pause_timer(void)
 {
-timer:
+repeat:
     nodelay(stdscr, FALSE);
 
     /* FIX: Change this to the printing method in countdown_timer, using arrays */
@@ -150,7 +150,7 @@ timer:
     case 'q':
         QUIT();
     default:
-        goto timer;
+        goto repeat;
     }
 
     nodelay(stdscr, TRUE);
@@ -225,14 +225,8 @@ cpom(void)
     case 'w':
         WORK;
         break;
-    case 's':
-        SHORT_BREAK;
-        break;
-    case 'l':
-        LONG_WORK;
-        break;
-    case 't':
-        countdown_timer(5, "TESTING");
+    case 'b':
+        BREAK;
         break;
     case 'q':
         QUIT();
