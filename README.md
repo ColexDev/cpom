@@ -2,7 +2,7 @@
 
 ## Installation
 `$ git clone https://github.com/colexdev/cpom`\
-`cd cpom`\
+`$ cd cpom`\
 `$ make`\
 `$ make install`
 
