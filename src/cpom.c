@@ -36,14 +36,11 @@
 #define WORK  countdown_timer(intervals[0] * 60, names[0]);
 #define BREAK countdown_timer(intervals[1] * 60, names[1]);
 
-char keybindings[] = {'w',     'b',     'q'   };
-char* names[]      = {"WORK",  "BREAK", "QUIT"};
-int intervals[]    = {60,      10,      0     }; /* IN MINUTES */
-
 char* spinner[4]   = {"\\", "|", "/", "-"};
 
 unsigned int total_time_spent_sec = 0;
 unsigned int total_time_spent_min = 0;
+unsigned int total_time_spent_hr  = 0;
 
 typedef struct {
     unsigned int min;
@@ -53,6 +50,13 @@ typedef struct {
     unsigned int total_secs;
     unsigned int time_left;
 } Countdown_time;
+
+void
+get_date()
+{
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+}
 
 void
 init_countdown_time(Countdown_time* ct)
@@ -77,14 +81,21 @@ init_colors(void)
 void
 display_total_time(void)
 {
+    int offset = sizeof(names) / sizeof(names[0]) + 2;
+
     while (total_time_spent_sec >= 60) {
         total_time_spent_min += 1;
         total_time_spent_sec -= 60;
+        if (total_time_spent_min == 60) {
+            total_time_spent_min = 0;
+            total_time_spent_sec = 0;
+            total_time_spent_hr += 1;
+        }
     }
 
-    mvprintw(5, 1, "Time Spent This Session: ");
+    mvprintw(offset, 1, "Time Spent This Session: ");
     attron(COLOR_PAIR(GRAY));
-    mvprintw(5, 26, "%dm %ds", total_time_spent_min, total_time_spent_sec);
+    mvprintw(offset, 26, "%dh %dm %ds", total_time_spent_hr, total_time_spent_min, total_time_spent_sec);
     attroff(COLOR_PAIR(GRAY));
 }
 
@@ -143,14 +154,14 @@ repeat:
     refresh();
 
     switch (getch()) {
-    case 'c':
-        break;
-    case 's':
-        return SKIP;
-    case 'q':
-        QUIT();
-    default:
-        goto repeat;
+        case 'c':
+            break;
+        case 's':
+            return SKIP;
+        case 'q':
+            QUIT();
+        default:
+            goto repeat;
     }
 
     nodelay(stdscr, TRUE);
@@ -168,6 +179,10 @@ display_time_left(Countdown_time* ct)
     attroff(COLOR_PAIR(GREEN));
 
     mvprintw(1, 5, "%dm %ds\n", ct->time_left / 60, ct->time_left % 60);
+    attron(COLOR_PAIR(GREEN));
+    mvprintw(3, 1, "[p]");
+    attroff(COLOR_PAIR(GREEN));
+    mvprintw(3, 5, "Pause");
     refresh();
 }
 
@@ -198,15 +213,15 @@ countdown_timer(unsigned int time_in_sec, char* type)
         display_time_left(ct);
 
         switch (getch()) {
-        case 'p':
-            if (pause_timer() == SKIP) {
-                CLEANUP_TIMER();
-                return;
-            }
-            break;
-        case 'q':
-            free(ct);
-            QUIT();
+            case 'p':
+                if (pause_timer() == SKIP) {
+                    CLEANUP_TIMER();
+                    return;
+                }
+                break;
+            case 'q':
+                free(ct);
+                QUIT();
         }
     } while (ct->time_left > 0);
 
@@ -221,16 +236,26 @@ cpom(void)
     display_main_menu();
 
     /* FIX: Figure out how to use keybindings array for this switch */
-    switch (getch()) {
-    case 'w':
-        WORK;
-        break;
-    case 'b':
-        BREAK;
-        break;
-    case 'q':
-        QUIT();
-    default:
-        break;
+    int key = getch();
+    for (int i = 0; i < sizeof(keybindings) / sizeof(keybindings[0]); i++) {
+        if (key == keybindings[i]) {
+            if (key == 'q') {
+                QUIT();
+            } else {
+                countdown_timer(intervals[i] * 60, names[i]);
+            }
+        }
     }
+    // switch (getch()) {
+    // case 'w':
+    //     WORK;
+    //     break;
+    // case 'b':
+    //     BREAK;
+    //     break;
+    // case 'q':
+    //     QUIT();
+    // default:
+    //     break;
+    // }
 }
